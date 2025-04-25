@@ -1,59 +1,156 @@
+\companies.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Companies</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            color: #333;
-            text-align: center;
-            padding: 50px;
-        }
-        h1 {
-            color: #4CAF50;
-        }
-        table {
-            width: 80%;
-            margin: 20px auto;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-        }
-        th {
-            background-color: #4CAF50;
-            color: white;
-        }
-    </style>
+    <title>Companies Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 </head>
 <body>
-    <h1>Companies</h1>
-    <a href="{{ url_for('create_company') }}" class="button">Add New Company</a>
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>Company Name</th>
-            <th>Location</th>
-            <th>Description</th>
-            <th>Employees Count</th>
-            <th>Actions</th>
-        </tr>
-        {% for company in companies %}
-        <tr>
-            <td>{{ company.id }}</td>
-            <td>{{ company.name }}</td>
-            <td>{{ company.location }}</td>
-            <td>{{ company.description }}</td>
-            <td>{{ company.employees_count }}</td>
-            <td>
-                <a href="{{ url_for('view_company', id=company.id) }}">View</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">Company Portal</a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('list_companies') }}">Companies</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('list_jobs') }}">Jobs</a>
+                    </li>
+                </ul>
+                <div class="d-flex" id="authButtons">
+                    <!-- Auth buttons will be inserted here via JavaScript -->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Companies List</h2>
+            <button class="btn btn-primary" id="addCompanyBtn" onclick="checkAuthAndRedirect('{{ url_for('create_company') }}')">
+                <i class="bi bi-plus-circle"></i> Add New Company
+            </button>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Company Name</th>
+                                <th>Location</th>
+                                <th>Employees</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for company in companies %}
+                            <tr>
+                                <td>{{ company.name }}</td>
+                                <td><i class="bi bi-geo-alt"></i> {{ company.location }}</td>
+                                <td><i class="bi bi-people"></i> {{ company.employees_count }}</td>
+                                <td>{{ company.description[:100] }}...</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-primary" onclick="viewCompany({{ company.id }})">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary auth-required" onclick="editCompany({{ company.id }})">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger auth-required" onclick="deleteCompany({{ company.id }})">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check if user is authenticated
+        function isAuthenticated() {
+            return localStorage.getItem('access_token') !== null;
+        }
+
+        // Update UI based on authentication status
+        function updateAuthUI() {
+            const authButtons = document.getElementById('authButtons');
+            const authRequired = document.querySelectorAll('.auth-required');
+            
+            if (isAuthenticated()) {
+                authButtons.innerHTML = `
+                    <button class="btn btn-light" onclick="logout()">Logout</button>
+                `;
+                authRequired.forEach(el => el.style.display = 'inline-block');
+            } else {
+                authButtons.innerHTML = `
+                    <button class="btn btn-light me-2" onclick="location.href='/login'">Login</button>
+                    <button class="btn btn-light" onclick="location.href='/register'">Register</button>
+                `;
+                authRequired.forEach(el => el.style.display = 'none');
+            }
+        }
+
+        // CRUD Operations
+        async function deleteCompany(id) {
+            if (!isAuthenticated()) {
+                alert('Please login to delete companies');
+                return;
+            }
+            
+            if (confirm('Are you sure you want to delete this company?')) {
+                try {
+                    const response = await fetch(`/api/companies/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                        }
+                    });
+                    if (response.ok) {
+                        location.reload();
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }
+        }
+
+        function editCompany(id) {
+            if (!isAuthenticated()) {
+                alert('Please login to edit companies');
+                return;
+            }
+            location.href = `/company/${id}/edit`;
+        }
+
+        function viewCompany(id) {
+            location.href = `/company/${id}`;
+        }
+
+        function checkAuthAndRedirect(url) {
+            if (!isAuthenticated()) {
+                alert('Please login to add new companies');
+                return;
+            }
+            location.href = url;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', updateAuthUI);
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
